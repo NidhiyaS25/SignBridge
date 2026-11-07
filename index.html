@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SignBridge – Sign Beyond Words | Indian Sign Language Assistant</title>
+  <meta name="description" content="SignBridge recognizes Indian Sign Language (ISL) hand signs using computer vision and converts them into text and speech.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22><text y=%22.9em%22 font-size=%2290%22>🤟</text></svg>">
+  
+  <!-- MediaPipe Hands CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --navy: #0f172a;
+      --navy-light: #1e293b;
+      --blue: #2563eb;
+      --blue-hover: #1d4ed8;
+      --cyan: #06b6d4;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --green: #10b981;
+      --red: #ef4444;
+      --gold: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Hero Header */
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .hero-info {
+      max-width: 750px;
+    }
+
+    .hero-title {
+      font-size: 2.3rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hero-tagline {
+      font-size: 1.2rem;
+      color: #93c5fd;
+      font-weight: 600;
+      margin: 4px 0 10px 0;
+    }
+
+    .hero-desc {
+      font-size: 0.95rem;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    .hero-links {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn-portal {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background-color: #3b82f6;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-portal:hover {
+      background-color: #2563eb;
+      transform: translateY(-1px);
+    }
+
+    .btn-github {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .btn-github:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Main Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Camera View */
+    .camera-wrapper {
+      position: relative;
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      background-color: #0f172a;
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #videoElement {
+      display: none; /* Processed into canvas */
+    }
+
+    #canvasElement {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Mirror view for natural signing */
+    }
+
+    .camera-controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    button {
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background-color: var(--blue);
+      color: white;
+    }
+    .btn-primary:hover {
+      background-color: var(--blue-hover);
+    }
+
+    .btn-danger {
+      background-color: #f1f5f9;
+      color: #64748b;
+      border: 1px solid var(--border);
+    }
+    .btn-danger:hover {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge-inactive {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+    .badge-active {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+
+    /* Recognition Section */
+    .rec-box {
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+
+    .rec-sign-name {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--navy);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rec-meaning {
+      font-size: 0.95rem;
+      color: #1e40af;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .confidence-bar-bg {
+      background-color: #dbeafe;
+      border-radius: 9999px;
+      height: 10px;
+      width: 100%;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-fill {
+      background: linear-gradient(90deg, #3b82f6, #06b6d4);
+      height: 100%;
+      width: 0%;
+      transition: width 0.15s ease;
+    }
+
+    /* Sentence Builder */
+    .message-box {
+      background-color: #f8fafc;
+      border: 2px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 16px 20px;
+      min-height: 70px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      word-break: break-word;
+    }
+
+    .message-placeholder {
+      color: #94a3b8;
+      font-weight: 400;
+      font-size: 1rem;
+    }
+
+    .builder-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    /* Vocabulary Section */
+    .vocab-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .vocab-card {
+      background-color: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      transition: transform 0.15s;
+    }
+
+    .vocab-card:hover {
+      transform: translateY(-2px);
+      border-color: #93c5fd;
+    }
+
+    .vocab-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--navy);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .vocab-hands {
+      font-size: 0.75rem;
+      background-color: #e2e8f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .vocab-desc {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* Disclaimer */
+    .disclaimer {
+      background-color: #fffbeb;
+      border-left: 4px solid var(--gold);
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.85rem;
+      color: #92400e;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header class="hero">
+    <div class="hero-info">
+      <h1 class="hero-title">🤟 SignBridge</h1>
+      <div class="hero-tagline">Sign Beyond Words.</div>
+      <p class="hero-desc">
+        A real-time assistive communication platform breaking barriers between Indian Sign Language (ISL)
+        signers and non-signers using computer vision, landmark pose estimation, and text-to-speech.
+      </p>
+    </div>
+    <div class="hero-links">
+      <a href="https://share.streamlit.io/deploy?repository=NidhiyaS25/SignBridge&branch=stable&mainModule=app.py" target="_blank" class="btn-portal">
+        🚀 Launch Python Streamlit App
+      </a>
+      <a href="https://github.com/NidhiyaS25/SignBridge" target="_blank" class="btn-portal btn-github">
+        📂 GitHub Repository
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <div class="grid">
+    <!-- Camera Area -->
+    <div class="card">
+      <div class="card-title">
+        <span>📹 Live Camera & Landmark Visualization</span>
+        <span id="cameraStatus" class="badge badge-inactive">● Camera Offline</span>
+      </div>
+
+      <div class="camera-wrapper">
+        <video id="videoElement" playsinline></video>
+        <canvas id="canvasElement"></canvas>
+      </div>
+
+      <div class="camera-controls">
+        <button id="startBtn" class="btn-primary" onclick="startCamera()">▶ Start Webcam</button>
+        <button id="stopBtn" class="btn-danger" onclick="stopCamera()">⏹ Stop</button>
+      </div>
+    </div>
+
+    <!-- Recognition & Sentence Panel -->
+    <div class="card">
+      <div class="card-title">
+        <span>🎯 Recognized ISL Sign</span>
+        <span id="handCountBadge" class="badge badge-inactive">0 Hands</span>
+      </div>
+
+      <div class="rec-box">
+        <div id="signName" class="rec-sign-name">Ready for Signs...</div>
+        <div id="signMeaning" class="rec-meaning">Start camera and show an ISL hand sign</div>
+        <div class="confidence-bar-bg">
+          <div id="confidenceBar" class="confidence-bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin-top: 10px;">
+        <span>💬 Message Builder & Speech</span>
+      </div>
+
+      <div id="messageDisplay" class="message-box">
+        <span class="message-placeholder">Recognized signs appear here...</span>
+      </div>
+
+      <div class="builder-actions">
+        <button class="btn-primary" onclick="addCurrentSign()">➕ Add Word</button>
+        <button class="btn-danger" onclick="deleteLastWord()">⌫ Delete</button>
+        <button class="btn-danger" onclick="clearMessage()">🗑 Clear</button>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 12px;">
+        <button class="btn-primary" style="flex: 1.2; justify-content: center; background-color: #0f172a;" onclick="speakMessage()">
+          🔊 Speak Message
+        </button>
+        <button class="btn-danger" style="flex: 0.8; justify-content: center;" onclick="repeatMessage()">
+          🔁 Repeat
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vocabulary Reference Grid -->
+  <div class="card">
+    <div class="card-title">
+      <span>📖 Supported ISL Vocabulary (10 Signs)</span>
+      <span class="badge" style="background:#e0f2fe; color:#0369a1;">Standard ISL Reference</span>
+    </div>
+
+    <div class="vocab-grid">
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Hello</span><span class="vocab-hands">1 Hand</span></div>
+        <div class="vocab-desc">Open palm raised near temple, angled outward in polite salute/wave.</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Namaste</span><span class="vocab-hands">2 Hands</span></div>
+        <div class="vocab-desc">Both palms pressed flat together at center chest (Anjali Mudra).</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Thank You</span><span class="vocab-hands">1 Hand</span></div>
+        <div class="vocab-desc">Flat hand fingertips at chin moving forward toward listener.</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Yes</span><span class="vocab-hands">1 Hand</span></div>
+        <div class="vocab-desc">Closed fist held forward nodding downward from wrist.</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>No</span><span class="vocab-hands">1 Hand</span></div>
+        <div class="vocab-desc">Index finger upright waving side-to-side; other fingers curled.</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Please</span><span class="vocab-hands">1 Hand</span></div>
+        <div class="vocab-desc">Open flat palm gently resting over heart/chest.</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Help</span><span class="vocab-hands">2 Hands</span></div>
+        <div class="vocab-desc">Thumbs-up fist resting upright on the flat open palm of other hand.</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Good</span><span class="vocab-hands">1 Hand</span></div>
+        <div class="vocab-desc">Clear thumbs-up gesture held firmly at chest level.</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Water</span><span class="vocab-hands">1 Hand</span></div>
+        <div class="vocab-desc">'W' shape with index, middle, ring upright; tapped at lips.</div>
+      </div>
+      <div class="vocab-card">
+        <div class="vocab-title"><span>Goodbye</span><span class="vocab-hands">1 Hand</span></div>
+        <div class="vocab-desc">Open palm facing forward, waving side-to-side in farewell.</div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      <strong>⚠️ Prototype Notice:</strong> SignBridge is a limited-vocabulary assistive communication prototype developed for hackathon demonstration. Joining sign glosses provides functional visual and audio aid, but does not represent full grammatical translation of complex conversational ISL.
+    </div>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById('videoElement');
+  const canvas = document.getElementById('canvasElement');
+  const ctx = canvas.getContext('2d');
+  const statusBadge = document.getElementById('cameraStatus');
+  const handBadge = document.getElementById('handCountBadge');
+  const signName = document.getElementById('signName');
+  const signMeaning = document.getElementById('signMeaning');
+  const confBar = document.getElementById('confidenceBar');
+  const messageDisplay = document.getElementById('messageDisplay');
+
+  let camera = null;
+  let hands = null;
+  let isRunning = false;
+  let sentence = [];
+  let currentPredictedSign = null;
+  let lastSpokenMessage = "";
+  let lastAddedWord = "";
+  let lastAddTimestamp = 0;
+
+  const VOCABULARY = {
+    'HELLO': { name: 'Hello', meaning: 'Greeting / Welcome' },
+    'NAMASTE': { name: 'Namaste', meaning: 'Respectful Indian Greeting' },
+    'THANK_YOU': { name: 'Thank You', meaning: 'Expressing Gratitude' },
+    'YES': { name: 'Yes', meaning: 'Affirmation / Agreement' },
+    'NO': { name: 'No', meaning: 'Negation / Disagreement' },
+    'PLEASE': { name: 'Please', meaning: 'Polite Request' },
+    'HELP': { name: 'Help', meaning: 'Need Assistance' },
+    'GOOD': { name: 'Good', meaning: 'Approval / Well done' },
+    'WATER': { name: 'Water', meaning: 'Thirst / Water' },
+    'BYE': { name: 'Goodbye', meaning: 'Farewell' }
+  };
+
+  // MediaPipe Hands Connections Definition
+  const CONNECTIONS = [
+    [0,1], [1,2], [2,3], [3,4],
+    [0,5], [5,6], [6,7], [7,8],
+    [0,9], [9,10], [10,11], [11,12],
+    [0,13], [13,14], [14,15], [15,16],
+    [0,17], [17,18], [18,19], [19,20],
+    [5,9], [9,13], [13,17]
+  ];
+
+  function initMediaPipe() {
+    hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.65,
+      minTrackingConfidence: 0.6
+    });
+
+    hands.onResults(onHandResults);
+  }
+
+  function onHandResults(results) {
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+    const numHands = results.multiHandLandmarks ? results.multiHandLandmarks.length : 0;
+    handBadge.innerText = `${numHands} Hand${numHands === 1 ? '' : 's'}`;
+    handBadge.className = numHands > 0 ? 'badge badge-active' : 'badge badge-inactive';
+
+    if (numHands > 0) {
+      for (const landmarks of results.multiHandLandmarks) {
+        drawLandmarks(landmarks);
+      }
+      classifySign(results);
+    } else {
+      currentPredictedSign = null;
+      signName.innerText = "Waiting for hands...";
+      signMeaning.innerText = "Position hand clearly in camera view";
+      confBar.style.width = "0%";
+    }
+
+    ctx.restore();
+  }
+
+  function drawLandmarks(landmarks) {
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Draw skeletal connections
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 3;
+    for (const [start, end] of CONNECTIONS) {
+      const p1 = landmarks[start];
+      const p2 = landmarks[end];
+      ctx.beginPath();
+      ctx.moveTo(p1.x * w, p1.y * h);
+      ctx.lineTo(p2.x * w, p2.y * h);
+      ctx.stroke();
+    }
+
+    // Draw landmark joints
+    for (let i = 0; i < landmarks.length; i++) {
+      const pt = landmarks[i];
+      const cx = pt.x * w;
+      const cy = pt.y * h;
+
+      ctx.beginPath();
+      if ([4, 8, 12, 16, 20].includes(i)) {
+        // Fingertip
+        ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = '#06b6d4';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fill();
+      }
+    }
+  }
+
+  // Geometric Rule-Based Classifier for Browser Demo
+  function classifySign(results) {
+    const lmsList = results.multiHandLandmarks;
+    const count = lmsList.length;
+
+    let recognized = null;
+    let confidence = 0.85;
+
+    if (count === 2) {
+      const h1 = lmsList[0];
+      const h2 = lmsList[1];
+      const dist = Math.hypot(h1[0].x - h2[0].x, h1[0].y - h2[0].y);
+
+      if (dist < 0.20) {
+        recognized = 'NAMASTE';
+        confidence = 0.94;
+      } else {
+        recognized = 'HELP';
+        confidence = 0.88;
+      }
+    } else if (count === 1) {
+      const lm = lmsList[0];
+
+      // Finger tip heights relative to PIP joints
+      const thumbUp = lm[4].y < lm[3].y && lm[4].y < lm[2].y;
+      const indexUp = lm[8].y < lm[6].y;
+      const middleUp = lm[12].y < lm[10].y;
+      const ringUp = lm[16].y < lm[14].y;
+      const pinkyUp = lm[20].y < lm[18].y;
+
+      const openFingers = [indexUp, middleUp, ringUp, pinkyUp].filter(Boolean).length;
+
+      if (thumbUp && openFingers === 0) {
+        recognized = 'GOOD';
+        confidence = 0.96;
+      } else if (openFingers === 0 && !thumbUp) {
+        recognized = 'YES';
+        confidence = 0.89;
+      } else if (indexUp && !middleUp && !ringUp && !pinkyUp) {
+        recognized = 'NO';
+        confidence = 0.92;
+      } else if (indexUp && middleUp && ringUp && !pinkyUp) {
+        recognized = 'WATER';
+        confidence = 0.91;
+      } else if (openFingers >= 4) {
+        if (lm[0].y < 0.45) {
+          recognized = 'HELLO';
+          confidence = 0.90;
+        } else {
+          recognized = 'BYE';
+          confidence = 0.88;
+        }
+      }
+    }
+
+    if (recognized && VOCABULARY[recognized]) {
+      currentPredictedSign = recognized;
+      const info = VOCABULARY[recognized];
+      signName.innerText = `🤟 ${info.name}`;
+      signMeaning.innerText = info.meaning;
+      confBar.style.width = `${Math.round(confidence * 100)}%`;
+
+      // Auto-add word with 1.5s debounce
+      const now = Date.now();
+      if (now - lastAddTimestamp > 1600 && lastAddedWord !== info.name) {
+        addWord(info.name);
+        lastAddedWord = info.name;
+        lastAddTimestamp = now;
+      }
+    } else {
+      signName.innerText = "Analyzing...";
+      signMeaning.innerText = "Hold sign steadily";
+      confBar.style.width = "40%";
+    }
+  }
+
+  function startCamera() {
+    if (isRunning) return;
+    initMediaPipe();
+
+    camera = new Camera(video, {
+      onFrame: async () => {
+        if (hands) {
+          await hands.send({ image: video });
+        }
+      },
+      width: 640,
+      height: 480
+    });
+
+    camera.start()
+      .then(() => {
+        isRunning = true;
+        statusBadge.innerText = "● Camera Active";
+        statusBadge.className = "badge badge-active";
+      })
+      .catch((err) => {
+        alert("Camera Error: " + err.message + "\nPlease check webcam permissions.");
+      });
+  }
+
+  function stopCamera() {
+    if (camera) {
+      camera.stop();
+      camera = null;
+    }
+    isRunning = false;
+    statusBadge.innerText = "● Camera Offline";
+    statusBadge.className = "badge badge-inactive";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function addWord(word) {
+    if (!word) return;
+    sentence.push(word);
+    renderSentence();
+  }
+
+  function addCurrentSign() {
+    if (currentPredictedSign && VOCABULARY[currentPredictedSign]) {
+      addWord(VOCABULARY[currentPredictedSign].name);
+    }
+  }
+
+  function deleteLastWord() {
+    if (sentence.length > 0) {
+      sentence.pop();
+      renderSentence();
+    }
+  }
+
+  function clearMessage() {
+    sentence = [];
+    lastAddedWord = "";
+    renderSentence();
+  }
+
+  function renderSentence() {
+    if (sentence.length === 0) {
+      messageDisplay.innerHTML = '<span class="message-placeholder">Recognized signs appear here...</span>';
+    } else {
+      messageDisplay.innerText = sentence.join(' ');
+    }
+  }
+
+  function speakMessage() {
+    const text = sentence.join(' ').trim();
+    if (!text) {
+      alert("Message is empty. Sign or add words first!");
+      return;
+    }
+
+    lastSpokenMessage = text;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 0.95;
+      utter.pitch = 1.0;
+      utter.lang = 'en-IN';
+      window.speechSynthesis.speak(utter);
+    }
+  }
+
+  function repeatMessage() {
+    if (!lastSpokenMessage) {
+      alert("No previous message to repeat.");
+      return;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(lastSpokenMessage);
+      utter.rate = 0.95;
+      utter.pitch = 1.0;
+      utter.lang = 'en-IN';
+      window.speechSynthesis.speak(utter);
+    }
+  }
+</script>
+
+</body>
+</html>

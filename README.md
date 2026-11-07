@@ -183,6 +183,20 @@ The application will automatically open in your default web browser at `http://l
 
 ---
 
+## ▲ 8.2 Vercel Web Deployment (Instant 1-Click)
+
+SignBridge includes a client-side MediaPipe web portal pre-configured for **Vercel** (ercel.json, index.html):
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FNidhiyaS25%2FSignBridge)
+
+### Steps to Deploy on Vercel:
+1. Open the **[Vercel SignBridge Import Link](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FNidhiyaS25%2FSignBridge)**.
+2. Sign in with your GitHub account (emimariam2006 or NidhiyaS25).
+3. Set Project Name to signbridge and click **Deploy**.
+4. Vercel automatically deploys and serves index.html with real-time browser MediaPipe hand tracking, sign recognition, and speech synthesis!
+
+---
+
 ## 🎬 9. Hackathon Demonstration Workflow
 
 Follow these steps during your live presentation:

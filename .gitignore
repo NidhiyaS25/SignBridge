@@ -58,3 +58,5 @@ temp_*.png
 temp_*.jpg
 camera_test.png
 *.log
+
+.vercel

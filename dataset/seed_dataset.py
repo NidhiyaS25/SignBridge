@@ -91,92 +91,93 @@ def get_base_fist(thumb_up=False):
 def get_sign_pose(sign_id: str):
     """Returns (hand1_points, hand2_points_or_none) for canonical ISL signs."""
     if sign_id == "HELLO":
-        # Open hand raised near temple
+        # Open hand raised near temple, fingers spread and angled
         h1 = get_base_open_hand()
+        for p in h1:
+            p[0] += 0.05
+            p[1] -= 0.15  # Raised near head
         return h1, None
 
     elif sign_id == "NAMASTE":
         # Two flat hands pressed together in center
         h1 = get_base_open_hand()
-        # Shift slightly left
         for p in h1:
-            p[0] -= 0.08
+            p[0] = 0.45 + (p[0] - 0.50) * 0.4  # compressed vertically together
         h2 = get_base_open_hand()
-        # Mirror / shift right
         for p in h2:
-            p[0] += 0.08
+            p[0] = 0.55 - (p[0] - 0.50) * 0.4  # facing opposite
         return h1, h2
 
     elif sign_id == "THANK_YOU":
-        # Flat hand extending outward
+        # Flat hand fingers pointing forward/outward from chin
         h1 = get_base_open_hand()
-        for p in h1:
-            p[1] -= 0.10
-            p[2] -= 0.05
+        for idx, p in enumerate(h1):
+            if idx > 0:
+                p[1] += 0.08  # angled outward towards listener
+                p[2] -= 0.15  # depth forward
         return h1, None
 
     elif sign_id == "YES":
-        # Fist nodding or upright
-        h1 = get_base_fist(thumb_up=True)
+        # Closed fist nodding downwards
+        h1 = get_base_fist(thumb_up=False)
+        for p in h1:
+            p[1] += 0.05  # lower wrist nod
         return h1, None
 
     elif sign_id == "NO":
-        # Index finger upright, other fingers curled
+        # Index finger upright, other fingers curled tightly
         h1 = get_base_fist(thumb_up=False)
-        # Extend index finger upright
         h1[6] = [0.44, 0.46, -0.03]
-        h1[7] = [0.44, 0.36, -0.04]
-        h1[8] = [0.44, 0.26, -0.05]
+        h1[7] = [0.44, 0.34, -0.04]
+        h1[8] = [0.44, 0.22, -0.05]  # Index fully upright
         return h1, None
 
     elif sign_id == "PLEASE":
-        # Open palm flat on chest
+        # Open palm flat facing chest
         h1 = get_base_open_hand()
         for p in h1:
-            p[2] += 0.04
+            p[2] += 0.10  # pushed against chest
+            p[0] -= 0.05
         return h1, None
 
     elif sign_id == "HELP":
         # Two hands: Hand 1 flat base palm, Hand 2 thumbs-up fist resting on it
         h1 = get_base_open_hand()
-        # Flatten base hand horizontally
         for p in h1:
-            p[1] = 0.70 + (p[1] - 0.70) * 0.3
-            p[0] -= 0.05
+            p[1] = 0.75 + (p[1] - 0.75) * 0.2  # horizontal flat base
+            p[0] = 0.40 + (p[0] - 0.50)
         h2 = get_base_fist(thumb_up=True)
         for p in h2:
-            p[1] -= 0.15
-            p[0] += 0.02
+            p[0] = 0.55 + (p[0] - 0.50)
+            p[1] -= 0.12
         return h1, h2
 
     elif sign_id == "GOOD":
-        # Pure thumbs-up gesture
+        # Pure upright thumbs-up gesture
         h1 = get_base_fist(thumb_up=True)
         return h1, None
 
     elif sign_id == "WATER":
         # 'W' sign: Index, middle, ring extended; thumb holding pinky
         h1 = get_base_open_hand()
-        # Curl pinky in
-        h1[18][1] = h1[17][1] + 0.06
-        h1[19][1] = h1[17][1] + 0.08
-        h1[20][1] = h1[17][1] + 0.05
-        # Fold thumb over pinky
-        h1[3] = [0.58, 0.62, -0.04]
-        h1[4] = [0.62, 0.60, -0.05]
+        h1[18][1] = h1[17][1] + 0.07
+        h1[19][1] = h1[17][1] + 0.09
+        h1[20][1] = h1[17][1] + 0.06
+        h1[3] = [0.55, 0.60, -0.04]
+        h1[4] = [0.60, 0.58, -0.05]
         return h1, None
 
     elif sign_id == "BYE":
-        # Open hand waving with horizontal tilt
+        # Open hand waving with prominent horizontal lateral tilt
         h1 = get_base_open_hand()
         for idx, p in enumerate(h1):
-            p[0] += (p[1] - 0.8) * 0.2  # tilt
+            p[0] += (p[1] - 0.8) * 0.45  # strong wave tilt
         return h1, None
 
     return get_base_open_hand(), None
 
 
-def generate_seed_dataset(samples_per_sign: int = 40):
+def generate_seed_dataset(samples_per_sign: int = 60):
     """Generates a high-quality baseline dataset with biometric variations."""
     DATASET_DIR.mkdir(parents=True, exist_ok=True)
     rows = []
